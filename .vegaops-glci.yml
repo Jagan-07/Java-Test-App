@@ -1,0 +1,49 @@
+stages:
+  - test_build
+  - build_image
+  - deploy
+
+build_package:
+    stage: test_build
+    # image: maven:3.9.6-eclipse-temurin-11
+    before_script:
+    #    - sudo apt-get update && sudo apt-get install maven -y
+        - mvn test
+    script:
+        - bash ./bin/build
+    artifacts:
+        paths:
+            - pkg
+    tags:
+        - cicd-runner
+
+build_image:
+    # image: docker:20.10.16
+    stage: build_image
+    # services:
+    #     - name: docker:20.10.16-dind
+    #       alias: docker
+    # variables:
+    #     DOCKER_TLS_CERTDIR: ""
+    before_script:
+        - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY --username $CI_REGISTRY_USER --password-stdin
+        - docker info
+    script:
+        - docker build -t $CI_REGISTRY/devops-assignment/vogl_di_010224_2018/demo-java:maven-app-1.0 .
+        - docker push $CI_REGISTRY/devops-assignment/vogl_di_010224_2018/demo-java:maven-app-1.0
+    tags:
+        - cicd-runner
+
+deploy_app:
+    stage: deploy
+    before_script:
+        - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY --username $CI_REGISTRY_USER --password-stdin
+        - docker --version
+    script:
+        - docker pull hub-peerxp.vegaops.com/devops-assignment/vogl_di_010224_2018/demo-java:maven-app-1.0
+        - docker stop maven-app && docker rm maven-app
+        - docker run -d -p 8080:8080 --name maven-app hub-peerxp.vegaops.com/devops-assignment/vogl_di_010224_2018/demo-java:maven-app-1.0
+    only:
+        - master
+    tags:
+        - cicd-runner
